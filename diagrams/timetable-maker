@@ -1,0 +1,78 @@
+<mxfile host="app.diagrams.net" modified="2023-08-12T11:39:52.997Z" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36" etag="Ha1IRYEMN32xfTITY67x" version="21.6.8" type="device">
+  <diagram name="Page-1" id="heh8fG-lLd4_wF9AFVQ5">
+    <mxGraphModel dx="1354" dy="623" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="J1XEc2t38chWupNUPM2H-1" value="Course Details" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="50" y="60" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="J1XEc2t38chWupNUPM2H-2" value="Staff Details" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="50" y="160" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="J1XEc2t38chWupNUPM2H-3" value="Min block Size" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="200" y="60" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="J1XEc2t38chWupNUPM2H-4" value="Max block size" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="350" y="60" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="J1XEc2t38chWupNUPM2H-5" value="weekly work hours" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="500" y="60" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="J1XEc2t38chWupNUPM2H-6" value="pref_session" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="650" y="60" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="J1XEc2t38chWupNUPM2H-7" value="availability" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="200" y="160" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="J1XEc2t38chWupNUPM2H-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="J1XEc2t38chWupNUPM2H-8" target="J1XEc2t38chWupNUPM2H-9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="J1XEc2t38chWupNUPM2H-8" value="start" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="50" y="260" width="70" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="J1XEc2t38chWupNUPM2H-12" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="J1XEc2t38chWupNUPM2H-9" target="J1XEc2t38chWupNUPM2H-11">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="J1XEc2t38chWupNUPM2H-9" value="for course in course_details" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="140" y="255" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="J1XEc2t38chWupNUPM2H-14" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="J1XEc2t38chWupNUPM2H-11">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="450" y="285" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="J1XEc2t38chWupNUPM2H-11" value="awh = 0&lt;br&gt;rwh = wwh" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="300" y="255" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="J1XEc2t38chWupNUPM2H-29" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="J1XEc2t38chWupNUPM2H-16" target="J1XEc2t38chWupNUPM2H-28">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="J1XEc2t38chWupNUPM2H-16" value="while rwh &amp;gt; 0" style="rhombus;whiteSpace=wrap;html=1;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="450" y="245" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="J1XEc2t38chWupNUPM2H-31" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="J1XEc2t38chWupNUPM2H-28" target="J1XEc2t38chWupNUPM2H-30">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="J1XEc2t38chWupNUPM2H-28" value="slot_size = min(rwh, max-block-size)" style="whiteSpace=wrap;html=1;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="570" y="255" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="J1XEc2t38chWupNUPM2H-33" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="J1XEc2t38chWupNUPM2H-30" target="J1XEc2t38chWupNUPM2H-32">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="J1XEc2t38chWupNUPM2H-30" value="while slot_size &amp;gt; min_block_size" style="rhombus;whiteSpace=wrap;html=1;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="730" y="232.5" width="140" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="J1XEc2t38chWupNUPM2H-35" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="J1XEc2t38chWupNUPM2H-32" target="J1XEc2t38chWupNUPM2H-34">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="J1XEc2t38chWupNUPM2H-32" value="day_counter = 1&lt;br&gt;req-bm = slot_size * &quot;0&quot;" style="whiteSpace=wrap;html=1;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="910" y="255" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="J1XEc2t38chWupNUPM2H-34" value="" style="rhombus;whiteSpace=wrap;html=1;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="1090" y="245" width="80" height="80" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
