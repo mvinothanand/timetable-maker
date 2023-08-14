@@ -48,6 +48,35 @@ def get_merged_bm_day(input_list):
   return merged_bm_day
 
 
+def find_slots(course, staff_avail_merged_bmap):
+  rem_hours = int(course["weekly_hours"])
+  max_block_size = int(course["max_block_size"])
+  min_block_size = int(course["min_block_size"])
+  matched_slots = {"Mon": [], "Tue": [], "Wed": [], "Thu": [], "Fri": []}
+  for i, day in zip(range(5), ["Mon", "Tue", "Wed", "Thu", "Fri"]):
+    if rem_hours <= 0:
+      break
+    # first check if there is a slot for max_block_size
+    slot_size = min(rem_hours, max_block_size)
+    reqd_bmap = slot_size * "0"
+    matched_slot = staff_avail_merged_bmap[i].find(reqd_bmap)
+    print(matched_slot)
+    if matched_slot >= 0:
+      #matched_slots.append({day: [{"hour": matched_slot + 1, "slot_size": slot_size}]})
+      matched_slots[day].append({"hour": matched_slot + 1, "slot_size": slot_size})
+      rem_hours = rem_hours - slot_size
+    else: 
+      if max_block_size > min_block_size:
+        # Check if there is a slot or min block size
+        slot_size = min(rem_hours, min_block_size)
+        reqd_bmap = slot_size * "0"
+        matched_slot = staff_avail_merged_bmap[i].find(reqd_bmap)
+        if matched_slot >= 0:
+          matched_slots[day].append({"hour": matched_slot + 1, "slot_size": slot_size})
+          rem_hours = rem_hours - slot_size
+  return matched_slots
+
+
 # find a slot for a course
 # looks at the staff avaiability
 def get_slot(course, staff_availability):
@@ -103,12 +132,18 @@ def main():
   #print(staff_availability)
 
   # Find a slot for each course
+  course_slot_mapping = []
+  counter = 1
   for course in sorted(course_details,key = lambda course: course["max_block_size"], reverse = True):
     print(f"{course['class']} {course['name']} {course['staff']}")
     staff_records = list(filter(lambda staff: staff['name'] in course['staff'].split("|"),staff_availability))
     staff_curr_avail_bmap = get_merged_bm_week(staff_records)
-    print(f"Staff Availability bmap: {staff_curr_avail_bmap}")
-    #mapped_slot = get_slot(course, staff_records)
+    print(f"Merged Staff Availability bmap for the week : {staff_curr_avail_bmap}")
+    mapped_slots = find_slots(course, staff_curr_avail_bmap)
+    print(mapped_slots)
+    counter += 1
+    if counter > 2:
+      break
 
 
 if __name__ == "__main__":
