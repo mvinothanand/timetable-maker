@@ -1,15 +1,20 @@
 import sys
+import json
 from colorama import Fore, init
 
 from common import (
   csvToList,
+  dump_list_to_file
 )
 
 from config import (
   course_details_file,
   staff_availability_file,
   class_schedule_file,
-  week_days
+  week_days,
+  staff_details_json,
+  class_schedule_json,
+  course_schedule_json
 )
 
 init(autoreset=True)
@@ -19,6 +24,7 @@ init(autoreset=True)
 def enrich_staff_info(staff_info):
   for staff in staff_info:
     staff["availability_bitmap"] = []
+    staff["courses"] = []
     for day in week_days:
       #print(f"{staff['name']} availability on {day}: ")
       availability_string = staff[day]  
@@ -95,11 +101,13 @@ def get_staff_class_merged_bmap_week(staff_availability_bmap, class_schedule_bma
   return merged_bmap
 
 def get_slot(rem_hours, block_size, day_avail_bmap):
+  #print(f"get_slot: rem_hours: {rem_hours} block_size: {block_size} day_bmap: {day_avail_bmap}")
   slot_size = min(rem_hours, block_size)
   reqd_bmap = slot_size * "0"
   matched_slot = day_avail_bmap.find(reqd_bmap)
+  #print(f"get_slot: matched_slot = {matched_slot}")
   #return {"hour": matched_slot + 1, "slot_size": slot_size} if matched_slot >= 0 else None
-  return list(range(matched_slot + 1, slot_size + 1)) if matched_slot >=0 else None
+  return list(range(matched_slot + 1, matched_slot + slot_size + 1)) if matched_slot >=0 else None
 
 
 def find_slots(course, staff_avail_merged_bmap):
@@ -115,6 +123,7 @@ def find_slots(course, staff_avail_merged_bmap):
     curr_bmap = staff_avail_merged_bmap[i]
     # first check for max block size else for min_block_size
     matched_slot = get_slot(rem_hours, max_block_size,curr_bmap)
+    #print(f"Matched Slot: {matched_slot}")
     if (not matched_slot) and min_block_size < max_block_size:
       matched_slot = get_slot(rem_hours, min_block_size,curr_bmap)
 
@@ -126,13 +135,72 @@ def find_slots(course, staff_avail_merged_bmap):
   return matched_slots
 
 
-def update_staff_availability(course_staff, staff_details_all, mapped_slots, course_name = "1"):
-  for staff in course_staff:
-    for i, day in zip(range(5), week_days):
-      print(f"{Fore.LIGHTBLUE_EX}Initial Availability of {staff['name']}: {day} :{staff[day]}")
-      for slot in mapped_slots[day]:
-        staff[day][slot] = course_name
-      print(f"{Fore.LIGHTRED_EX}Updated Availability of {staff['name']}: {day} :{staff[day]}")
+def update_staff_availability(course_staff, staff_details_all, mapped_slots, course_name, class_name):
+  staffs = [staff["name"] for staff in course_staff]
+  for staff in staff_details_all:
+    if staff["name"] in staffs:
+      staff["courses"].append(f"{class_name} {course_name}") 
+      for i, day in zip(range(5), week_days):
+        #print(f"{Fore.LIGHTBLUE_EX}Initial Availability of {staff['name']}: {day} :{staff[day]}")
+        updated_day_bitmap = ""
+        for slot in mapped_slots[day]:
+          staff[day][slot] = class_name + " " + course_name
+        for slot in range(1,9):
+          updated_day_bitmap = str(updated_day_bitmap) + str("0" if staff[day][slot] == "0" else "1")
+        staff["availability_bitmap"][i] = updated_day_bitmap
+        #print(f"{Fore.LIGHTRED_EX}Updated Availability of {staff['name']}: {day} :{staff[day]}")
+
+
+def update_class_schedule(class_schedule, class_name, mapped_slots, course_name):
+  for class_ in class_schedule:
+    if class_["name"] == class_name:
+      for i, day in zip(range(5), week_days):
+        updated_day_bitmap = ""
+        for slot in mapped_slots[day]:
+          class_[day][slot] = course_name
+        for slot in range(1,9):
+          updated_day_bitmap = str(updated_day_bitmap + str("0" if class_[day][slot] == "0" else "1"))
+        class_["schedule_bmap"][i] = updated_day_bitmap 
+
+
+def get_class_schedule(class_name, staff_availability, course_details_all, class_schedule_all):
+  # Filter the courses specific for the input class
+  class_course_details = list(filter(lambda course: course["class"] == class_name, course_details_all))
+  #print(course_details)
+
+  class_schedule = list(filter(lambda class_: class_["name"] == class_name, class_schedule_all))
+  if len(class_schedule) > 1:
+    sys.exit(Fore.RED + "More than one entry found for the class {class_name}")
+  if len(class_schedule) == 0:
+    sys.exit(Fore.RED + "Class Schedule not found for {class_name}")
+
+  course_slot_mapping = []
+  for course in sorted(class_course_details,key = lambda course: course["max_block_size"], reverse = True):
+    course_name = course["name"]
+    print(f"\n{Fore.CYAN}{course['class']} {course_name} {course['staff']}")
+  
+    # For the staff mapped for the course, get a merged availability bitmap for the week
+    staff_records = list(filter(lambda staff: staff['name'] in course['staff'].split("|"),staff_availability))
+    staff_avail_merged_bmap = get_merged_bm_week(staff_records)
+    #print(f"{Fore.GREEN}Merged Staff Availability bmap for the week : {staff_avail_merged_bmap}")
+  
+    # Get a merged bmap for the staff availability and class schedule
+    staff_class_merged_bmap = get_staff_class_merged_bmap_week(staff_avail_merged_bmap, class_schedule[0]["schedule_bmap"])
+    #print(f"Merged availability of staff and class: {staff_class_merged_bmap}")
+
+    mapped_slots = find_slots(course, staff_class_merged_bmap)
+    #print(mapped_slots)
+    
+    # update staff availability
+    update_staff_availability(staff_records, staff_availability, mapped_slots, course_name, class_name)
+    
+    # update class schedule
+    update_class_schedule(class_schedule_all, class_name, mapped_slots, course_name)  
+    #print(f"Updated class schedule: {class_schedule_curr}")
+
+    course_slot_mapping.append({"class": class_name, "name": course_name, "allotted_slots": mapped_slots, "faculty": [staff["name"] for staff in staff_records]})
+  
+  return course_slot_mapping
 
 
 def main():
@@ -148,23 +216,14 @@ def main():
   course_details_all = csvToList(course_details_file)
   #print(course_details)
 
-  # Filter the courses specific for the input class
-  course_details = list(filter(lambda course: course["class"] == sem, course_details_all))
-  #print(course_details)
-
   # Get the staff availability
   staff_availability_init = csvToList(staff_availability_file)
   #print(staff_availability)
   # Create a copy of staff availability - this will be updated as the program
-  # adds allocations
   staff_availability_curr = staff_availability_init.copy()
 
   # Get the class schedule
-  class_schedule_init = list(filter(lambda class_: class_["name"] == sem, csvToList(class_schedule_file)))
-  if len(class_schedule_init) > 1:
-    sys.exit(Fore.RED + "More than one entry found for the class {sem}")
-  if len(class_schedule_init) == 0:
-    sys.exit(Fore.RED + "Class Schedule not found for {sem}")
+  class_schedule_init = csvToList(class_schedule_file)
   # Create a working copy of the class schedule
   class_schedule_curr = class_schedule_init.copy()
 
@@ -176,31 +235,17 @@ def main():
   print(Fore.CYAN + "\nClass Schedule before allocation: ")
   enrich_class_schedule_info(class_schedule_curr)
 
-  # Find a slot for each course
-  course_slot_mapping = []
-  counter = 1
-  for course in sorted(course_details,key = lambda course: course["max_block_size"], reverse = True):
-    print(f"\n{Fore.CYAN}{course['class']} {course['name']} {course['staff']}")
-    
-    # For the staff mapped for the course, get a merged availability bitmap for the week
-    staff_records = list(filter(lambda staff: staff['name'] in course['staff'].split("|"),staff_availability_curr))
-    staff_avail_merged_bmap = get_merged_bm_week(staff_records)
-    print(f"{Fore.GREEN}Merged Staff Availability bmap for the week : {staff_avail_merged_bmap}")
-    
-    # Get a merged bmap for the staff availability and class schedule
-    #print(class_schedule_curr[0]["schedule_bmap"])
-    staff_class_merged_bmap = get_staff_class_merged_bmap_week(staff_avail_merged_bmap, class_schedule_curr[0]["schedule_bmap"])
-    print(f"Merged availability of staff and class: {staff_class_merged_bmap}")
+  # Get schedule for a class
+  course_slot_mapping = get_class_schedule(sem, staff_availability_curr, course_details_all, class_schedule_curr)
 
-    mapped_slots = find_slots(course, staff_class_merged_bmap)
-    print(mapped_slots)
-    #course_slot_mapping.add({"course_name": course["name"]})
-    # update staff availability
-    update_staff_availability(staff_records, staff_availability_curr, mapped_slots, course['name'])
-    counter += 1
-    if counter > 3:
-      break
-
+  #print(f"{Fore.CYAN}Updated class schedule: {class_schedule_curr}")
+  dump_list_to_file(class_schedule_curr, class_schedule_json)
+  #print(Fore.CYAN + "Updated Staff Availability:")
+  #for staff in staff_availability_curr:
+  #  print(f"{staff['name']}: {staff['availability_bitmap']}")
+  dump_list_to_file(staff_availability_curr, staff_details_json)
+  #print(f"{Fore.CYAN}Course Allocation:\n{course_slot_mapping}")
+  dump_list_to_file(course_slot_mapping, course_schedule_json)
 
 if __name__ == "__main__":
   main()
