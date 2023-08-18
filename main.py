@@ -1,6 +1,7 @@
 import sys
 import json
 from colorama import Fore, init
+from tabulate import tabulate
 
 from common import (
   csvToList,
@@ -117,21 +118,40 @@ def find_slots(course, staff_avail_merged_bmap):
   min_block_size = int(course["min_block_size"])
   matched_slots = {"Mon": [], "Tue": [], "Wed": [], "Thu": [], "Fri": []}
 
-  for i, day in zip(range(5), week_days):
-    if rem_hours <= 0:
-      break
-    curr_bmap = staff_avail_merged_bmap[i]
-    # first check for max block size else for min_block_size
-    matched_slot = get_slot(rem_hours, max_block_size,curr_bmap)
-    #print(f"Matched Slot: {matched_slot}")
-    if (not matched_slot) and min_block_size < max_block_size:
-      matched_slot = get_slot(rem_hours, min_block_size,curr_bmap)
+  iteration_count = 1
+  while(rem_hours > 0 and iteration_count <= int(course["weekly_hours"]) ):
+    print(f"Iteration {iteration_count}: Avilability Bitmap: {staff_avail_merged_bmap}")
+    iteration_count += 1
+    for i, day in zip(range(5), week_days):
+      if rem_hours <= 0:
+        break
+      curr_bmap = staff_avail_merged_bmap[i]
+      # first check for max block size else for min_block_size
+      matched_slot = get_slot(rem_hours, max_block_size,curr_bmap)
+      #print(f"Matched Slot: {matched_slot}")
+      if (not matched_slot) and min_block_size < max_block_size:
+        matched_slot = get_slot(rem_hours, min_block_size,curr_bmap)
 
-    if matched_slot:
-      #matched_slots[day].append(matched_slot)
-      matched_slots[day] = matched_slots[day] + matched_slot
-      rem_hours = rem_hours - len(matched_slot)
+      if matched_slot:
+        #matched_slots[day].append(matched_slot)
+        matched_slots[day] = matched_slots[day] + matched_slot
+        rem_hours = rem_hours - len(matched_slot)
+
+      updated_staff_availability = ""
+      for j in range(1,9):
+        if j in matched_slots[day]:
+          updated_staff_availability = updated_staff_availability + "1"
+        else:
+          updated_staff_availability = updated_staff_availability + staff_avail_merged_bmap[i][j-1]
+
+      staff_avail_merged_bmap[i] = updated_staff_availability
   
+  if rem_hours == 0:
+    print(f"Successfully mapped.")
+  else:
+    print(f"Unable to find slots for {rem_hours}")
+
+  print(f"Final Avilability Bitmap: {staff_avail_merged_bmap}")
   return matched_slots
 
 
@@ -177,7 +197,9 @@ def get_class_schedule(class_name, staff_availability, course_details_all, class
   course_slot_mapping = []
   for course in sorted(class_course_details,key = lambda course: course["max_block_size"], reverse = True):
     course_name = course["name"]
-    print(f"\n{Fore.CYAN}{course['class']} {course_name} {course['staff']}")
+    print(f"""
+    {Fore.CYAN}{course['class']} {course_name} {course['staff']} week hours: {course['weekly_hours']} 
+    min/max: {course['min_block_size']}/{course['max_block_size']} session pref: {course['session_pref']} max/day: {course['max_hrs_day']}""")
   
     # For the staff mapped for the course, get a merged availability bitmap for the week
     staff_records = list(filter(lambda staff: staff['name'] in course['staff'].split("|"),staff_availability))
@@ -197,10 +219,32 @@ def get_class_schedule(class_name, staff_availability, course_details_all, class
     # update class schedule
     update_class_schedule(class_schedule_all, class_name, mapped_slots, course_name)  
     #print(f"Updated class schedule: {class_schedule_curr}")
-
-    course_slot_mapping.append({"class": class_name, "name": course_name, "allotted_slots": mapped_slots, "faculty": [staff["name"] for staff in staff_records]})
+    
+    enriched_course_info = {
+      "allotted_slots": mapped_slots, 
+      "faculty": [staff["name"] for staff in staff_records],
+    }
+    enriched_course_info.update(course)
+    course_slot_mapping.append(enriched_course_info)
   
   return course_slot_mapping
+
+
+# Print class schedule
+# If schedule is to be printed for more than one class, provide the names as list
+def pretty_print_class_schedule(class_schedule, classes):
+  for class_ in classes:
+    print(class_)
+    schedule_table = []
+    schedule_table.append(["Day", "1", "2", "3", "4", "5", "6", "7", "8"])
+    schedule = list(filter(lambda item: item["name"] == class_.strip(), class_schedule))[0]
+    for day in week_days:
+      row = [day]
+      for i in range(1,9):
+        row.append(schedule[day][i])
+      schedule_table.append(row)
+    print(f"Schedule for {class_}: ")
+    print(tabulate(schedule_table, headers="firstrow", tablefmt="grid"))
 
 
 def main():
@@ -247,5 +291,22 @@ def main():
   #print(f"{Fore.CYAN}Course Allocation:\n{course_slot_mapping}")
   dump_list_to_file(course_slot_mapping, course_schedule_json)
 
+  pretty_print_class_schedule(class_schedule_curr, ["SEM-II"])
+
 if __name__ == "__main__":
   main()
+  #class,name,staff,weekly_hours,min_block_size,max_block_size,session_pref,max_hrs_day
+  # print(find_slots(
+  #   {
+  #     "class": "sem-II",
+  #     "name": "subject",
+  #     "staff": "staff-1|staff-5",
+  #     "weekly_hours": 5,
+  #     "min_block_size": 1,
+  #     "max_block_size": 1,
+  #     "session_pref": "FN",
+  #     "max_hrs_day": 2
+  #   }, 
+  #   ['11111100', '11111111', '11111111', '00000000', '00000000']
+  #   )
+  # )
