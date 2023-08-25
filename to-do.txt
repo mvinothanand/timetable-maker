@@ -1,9 +1,7 @@
-- Program has to allot hours based on the session preference - FN/AN
 - Program has to consider room availability for alloting courses
 - Program has to consider multiple batches to allot
-- Program has to allocate slots not less than min block size
 - Program has to take the current data from the json files if there is no csv file present in the required path
 - Program has to move the input csv files to a backup folder after the allocation
 - Program has to dump all the course details - not only the processed ones to course_schedule.json
-- If block size more than 1, then the slots should not be across lunch break
 - Enable writing the pretty table to file
+- Program should try different combinations to a set no of times to see if the given slots can be mapped Successfully
