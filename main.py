@@ -1,14 +1,24 @@
+# Python packages
 import sys
 import json
 import random
+import os
+import time
+import csv
+
+# Third party packages
 from colorama import Fore, init, Back, Style
 from tabulate import tabulate
 
+# My common package
 from common import (
   csvToList,
-  dump_list_to_file
+  dump_list_to_file,
+  write_list_to_csv,
+  create_dir
 )
 
+# Import configurations
 from config import (
   course_details_file,
   staff_availability_file,
@@ -19,7 +29,8 @@ from config import (
   course_schedule_json,
   fn_hrs,
   an_hrs,
-  scheduling_preferences
+  scheduling_preferences,
+  backup_folder
 )
 
 init(autoreset=True)
@@ -69,7 +80,7 @@ def enrich_staff_info(staff_info):
       #print(availability_bitmap)
       staff["availability_bitmap"].append(availability_bitmap)
     #print("\n")
-    print(f"{staff['name']}: {staff['availability_bitmap']}")
+    #print(f"{staff['name']}: {staff['availability_bitmap']}")
 
 
 def enrich_class_schedule_info(class_schedule):
@@ -81,7 +92,7 @@ def enrich_class_schedule_info(class_schedule):
       class_[day] = schedule_dict
       schedule_bmap = get_availablity_bitmap(schedule_string,'*')
       class_["schedule_bmap"].append(schedule_bmap)
-    print(f"{class_['name']}: {class_['schedule_bmap']}")
+    #print(f"{class_['name']}: {class_['schedule_bmap']}")
 
 
 
@@ -212,19 +223,19 @@ def find_slots(course, staff_class_merged_bmap, fn_first_hours, an_first_hours):
   max_hrs_day = int(course["max_hrs_day"])
   course_type = course["type"]
   matched_slots = {"Mon": [], "Tue": [], "Wed": [], "Thu": [], "Fri": []}
-  
+  week_days_shuffled = week_days.copy()
+  random.shuffle(week_days_shuffled)
   iteration_count = 1
+  input_bmap = staff_class_merged_bmap.copy()
   while(rem_hours > 0 and iteration_count <= int(course["weekly_hours"]) ):
     #print(f"Iteration {iteration_count}: Avilability Bitmap: {staff_class_merged_bmap}, num_of_first_hour_busy: {fn_first_hours}, num of busy after lunch: {an_first_hours}")
-    iteration_count += 1
-    week_days_shuffled = week_days.copy()
-    random.shuffle(week_days_shuffled)
+    print(f"Iteraton {iteration_count}")      
     for day in week_days_shuffled:
-      #print(day, end = " ")
+      print(day, rem_hours, end = " ")
       if rem_hours <= 0:
         break
       i = get_week_day_index(day) - 1
-      curr_bmap = apply_course_mask(staff_class_merged_bmap[i], matched_slots[day])
+      curr_bmap = apply_course_mask(input_bmap[i], matched_slots[day])
       #print(f"Course masked bmap: {curr_bmap}")
       
       # Set the flag to skip first hour or not
@@ -238,7 +249,7 @@ def find_slots(course, staff_class_merged_bmap, fn_first_hours, an_first_hours):
         matched_slot = get_slot(rem_hours, min_block_size,curr_bmap, session_pref,skip_fn_first_hour, skip_an_first_hour)
 
       if matched_slot:
-        #print(f"{matched_slot}")
+        print(f"matched slot: {matched_slot}")
         #matched_slots[day].append(matched_slot)
         matched_slots[day] = matched_slots[day] + matched_slot
         rem_hours = rem_hours - len(matched_slot)
@@ -252,9 +263,10 @@ def find_slots(course, staff_class_merged_bmap, fn_first_hours, an_first_hours):
             if j == an_hrs[0]:
               an_first_hours += 1
           else:
-            updated_availability = updated_availability + staff_class_merged_bmap[i][j-1]
+            updated_availability = updated_availability + input_bmap[i][j-1]
         
-        staff_class_merged_bmap[i] = updated_availability
+        input_bmap[i] = updated_availability
+    iteration_count += 1
   
   if rem_hours == 0:
     print(f"{Style.BRIGHT}{Fore.GREEN}Successfully mapped.")
@@ -262,6 +274,7 @@ def find_slots(course, staff_class_merged_bmap, fn_first_hours, an_first_hours):
     print(f"{Fore.RED}{Style.BRIGHT}Unable to find slots for {rem_hours}")
 
   print(f"Matched Slots: {matched_slots}")
+  print(f"Availability now: {input_bmap}")
   #print(f"{Fore.CYAN}Final Avilability Bitmap: {staff_class_merged_bmap}")
   return matched_slots
 
@@ -282,13 +295,13 @@ def update_staff_availability(course_staff, staff_details_all, mapped_slots, cou
         #print(f"{Fore.LIGHTRED_EX}Updated Availability of {staff['name']}: {day} :{staff[day]}")
 
 
-def update_class_schedule(class_schedule, class_name, mapped_slots, course_name):
+def update_class_schedule(class_schedule, class_name, mapped_slots, course):
   for class_ in class_schedule:
     if class_["name"] == class_name:
       for i, day in zip(range(5), week_days):
         updated_day_bitmap = ""
         for slot in mapped_slots[day]:
-          class_[day][slot] = course_name
+          class_[day][slot] = { "name": course["name"], "short_name": course["short_name"]}
         for slot in range(1,9):
           updated_day_bitmap = str(updated_day_bitmap + str("0" if class_[day][slot] == "0" else "1"))
         class_["schedule_bmap"][i] = updated_day_bitmap 
@@ -333,7 +346,7 @@ def get_class_schedule(class_name, staff_availability, course_details_all, class
     update_staff_availability(staff_records, staff_availability, mapped_slots, course_name, class_name)
     
     # update class schedule
-    update_class_schedule(class_schedule_all, class_name, mapped_slots, course_name)  
+    update_class_schedule(class_schedule_all, class_name, mapped_slots, course)  
     #print(f"Updated class schedule: {class_schedule_curr}")
     
     enriched_course_info = dict(course)
@@ -344,6 +357,33 @@ def get_class_schedule(class_name, staff_availability, course_details_all, class
     course_slot_mapping.append(enriched_course_info)
   
   return course_slot_mapping
+
+
+def create_staff_availability_csv(staff_details):
+  src_staff_filename = os.path.basename(staff_availability_file)
+  dest_staff_filename = os.path.splitext(src_staff_filename)[0] + "-" + time.strftime("%Y%m%d-%H%M%S") + ".csv"
+  dest_staff_file_full = f"{backup_folder}{dest_staff_filename}"
+
+  # Move the input staff availability file to back up
+  os.rename(staff_availability_file, dest_staff_file_full)
+  # Write the details to file
+  staff_details_to_write = []
+  for staff in staff_details:
+    record = {"name": staff["name"]}
+    for i, day in zip(range(5), week_days):
+      record[day] = "*".join(staff["availability_bitmap"][i])
+    staff_details_to_write.append(record)
+  
+  write_list_to_csv(staff_details_to_write, staff_availability_file, ["name", "Mon", "Tue", "Wed", "Thu", "Fri"])
+
+  # with open(staff_availability_file, "w") as dest_fp:
+  #   writer = csv.DictWriter(dest_fp, ["name", "Mon", "Tue", "Wed", "Thu", "Fri"])
+  #   writer.writeheader()
+  #   for staff in staff_details:
+  #     record = {"name": staff["name"]}
+  #     for i, day in zip(range(5), week_days):
+  #       record[day] = "*".join(staff["availability_bitmap"][i])
+  #     writer.writerow(record)
 
 
 # Print class schedule
@@ -357,7 +397,9 @@ def pretty_print_class_schedule(class_schedule, classes):
     for day in week_days:
       row = [day]
       for i in range(1,9):
-        row.append(schedule[day][i])
+        course_short_name = schedule[day][i]["short_name"] if schedule[day][i] != "0" else "0"
+        # print(f" debug {schedule[day][i]}")
+        row.append(course_short_name)
       schedule_table.append(row)
     print(f"\nSchedule for {class_}: ")
     print(tabulate(schedule_table, headers="firstrow", tablefmt="grid", maxcolwidths=[8,15,15,15,15,15,15,15,15]))
@@ -371,6 +413,9 @@ def main():
   # Read the class for which the timetable is to be prepared
   sem = sys.argv[1]
   print(f"\n{Style.BRIGHT}{Fore.CYAN}Timetable to be prepared for {sem}")
+
+  # Check if the back up folder exists. If not create it
+  create_dir(backup_folder)
 
   # Get the course details for the class
   course_details_all = csvToList(course_details_file)
@@ -388,27 +433,29 @@ def main():
   class_schedule_curr = class_schedule_init.copy()
 
   # Parse the daily availability and enrich the staff_availability dictionary
-  print(Fore.CYAN + "\nStaff availability before allocation: ")
+  #print(Fore.CYAN + "\nStaff availability before allocation: ")
   enrich_staff_info(staff_availability_curr)
 
   # PArse the class schedule and enrich it
-  print(Fore.CYAN + "\nClass Schedule before allocation: ")
+  #print(Fore.CYAN + "\nClass Schedule before allocation: ")
   enrich_class_schedule_info(class_schedule_curr)
 
   # Get schedule for a class
   course_slot_mapping = get_class_schedule(sem, staff_availability_curr, course_details_all, class_schedule_curr)
+  
+  #Create the updated staff availability csv file
+  #create_staff_availability_csv(staff_availability_curr)
 
-  #print(f"{Fore.CYAN}Updated class schedule: {class_schedule_curr}")
+  # Dump the data in json format for reference
   dump_list_to_file(class_schedule_curr, class_schedule_json)
-  #print(Fore.CYAN + "Updated Staff Availability:")
-  #for staff in staff_availability_curr:
-  #  print(f"{staff['name']}: {staff['availability_bitmap']}")
   dump_list_to_file(staff_availability_curr, staff_details_json)
-  #print(f"{Fore.CYAN}Course Allocation:\n{course_slot_mapping}")
   dump_list_to_file(course_slot_mapping, course_schedule_json)
 
   pretty_print_class_schedule(class_schedule_curr, [sem])
 
+
+  
+  
 if __name__ == "__main__":
   main()
   #class,name,staff,weekly_hours,min_block_size,max_block_size,session_pref,max_hrs_day
