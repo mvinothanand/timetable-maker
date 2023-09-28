@@ -2,3 +2,4 @@ config.py
 __pycache__/
 common.py.bkp
 db/
+data/backup/
