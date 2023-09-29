@@ -6,6 +6,7 @@ import os
 import time
 import csv
 import copy
+from pathlib import Path
 
 # Third party packages
 from colorama import Fore, init, Back, Style
@@ -31,7 +32,8 @@ from config import (
   fn_hrs,
   an_hrs,
   scheduling_preferences,
-  backup_folder
+  backup_folder,
+  output_folder
 )
 
 init(autoreset=True)
@@ -285,12 +287,12 @@ def update_staff_availability(course_staff, staff_details_all, mapped_slots, cou
   staffs = [staff["name"] for staff in course_staff]
   for staff in staff_details_all:
     if staff["name"] in staffs:
-      staff["courses"].append(f"{class_name} {course_name}") 
+      staff["courses"].append(f"{class_name}/{course_name}") 
       for i, day in zip(range(5), week_days):
         #print(f"{Fore.LIGHTBLUE_EX}Initial Availability of {staff['name']}: {day} :{staff[day]}")
         updated_day_bitmap = ""
         for slot in mapped_slots[day]:
-          staff[day][slot] = class_name + " " + course_name
+          staff[day][slot] = class_name + "/" + course_name
         for slot in range(1,9):
           updated_day_bitmap = str(updated_day_bitmap) + str("0" if staff[day][slot] == "0" else "1")
         staff["availability_bitmap"][i] = updated_day_bitmap
@@ -324,7 +326,7 @@ def get_class_schedule(class_name, staff_availability, course_details_all, class
   have_unmapped_hours = False
 
   for course in get_course_list_scheduling_pref(class_course_details):
-    course_name = course["name"]
+    course_name = course["short_name"] if course["short_name"] else course["name"]
     # print(f"\n{Style.BRIGHT}{Fore.CYAN}{course['class']} {course_name} {Fore.WHITE}{course['staff']}", \
     #   f"{Style.BRIGHT}{Fore.CYAN}week hours: {course['weekly_hours']} {Fore.WHITE}min/max: {course['min_block_size']}/{course['max_block_size']}", \
     #   f"{Fore.CYAN}session pref: {course['session_pref']} {Fore.WHITE}max/day: {course['max_hrs_day']}")
@@ -367,11 +369,10 @@ def get_class_schedule(class_name, staff_availability, course_details_all, class
 
 def create_staff_availability_csv(staff_details):
   src_staff_filename = os.path.basename(staff_availability_file)
-  dest_staff_filename = os.path.splitext(src_staff_filename)[0] + "-" + time.strftime("%Y%m%d-%H%M%S") + ".csv"
-  dest_staff_file_full = f"{backup_folder}{dest_staff_filename}"
+  dest_staff_filename = os.path.splitext(src_staff_filename)[0] + "-" + time.strftime("%Y%m%d%H%M%S") + ".csv"
+  updated_staff_availability_file = f"{output_folder}staff/{dest_staff_filename}"
+  # print(f"new file: {updated_staff_availability_file}")
 
-  # Move the input staff availability file to back up
-  os.rename(staff_availability_file, dest_staff_file_full)
   # Write the details to file
   staff_details_to_write = []
   for staff in staff_details:
@@ -380,16 +381,7 @@ def create_staff_availability_csv(staff_details):
       record[day] = "*".join(staff["availability_bitmap"][i])
     staff_details_to_write.append(record)
   
-  write_list_to_csv(staff_details_to_write, staff_availability_file, ["name", "Mon", "Tue", "Wed", "Thu", "Fri"])
-
-  # with open(staff_availability_file, "w") as dest_fp:
-  #   writer = csv.DictWriter(dest_fp, ["name", "Mon", "Tue", "Wed", "Thu", "Fri"])
-  #   writer.writeheader()
-  #   for staff in staff_details:
-  #     record = {"name": staff["name"]}
-  #     for i, day in zip(range(5), week_days):
-  #       record[day] = "*".join(staff["availability_bitmap"][i])
-  #     writer.writerow(record)
+  write_list_to_csv(staff_details_to_write, updated_staff_availability_file, ["name", "Mon", "Tue", "Wed", "Thu", "Fri"])
 
 
 # Print class schedule
@@ -409,6 +401,39 @@ def pretty_print_class_schedule(class_schedule, classes):
       schedule_table.append(row)
     print(f"\nSchedule for {class_}: ")
     print(tabulate(schedule_table, headers="firstrow", tablefmt="grid", maxcolwidths=[8,15,15,15,15,15,15,15,15]))
+    # Write the schedule to a csv file
+    destination_folder = Path(f"{output_folder}/class-schedule")
+    if not destination_folder.exists():
+      destination_folder.mkdir(parents=True)
+    class_schedule_file = Path(f"{output_folder}/class-schedule/{class_}-{time.strftime('%Y%m%d%H%M%S')}.csv")
+    class_schedule_file.write_text(tabulate(schedule_table, headers="firstrow", tablefmt="tsv", maxcolwidths=[8,15,15,15,15,15,15,15,15]))
+    # create_dir(f"{output_folder}/class-schedule/")
+    # with open(f"{output_folder}/class-schedule/{class_}-{time.strftime('%Y%m%d%H%M%S')}.csv", "w") as fp:
+    #   fp.write(tabulate(schedule_table, headers="firstrow", tablefmt="tsv", maxcolwidths=[8,15,15,15,15,15,15,15,15]))
+
+
+# Print staff schedule
+# provide the names as list
+def pretty_print_staff_schedule(staff_availability):
+  for staff in staff_availability:
+    #print(class_)
+    schedule_table = []
+    schedule_table.append(["Day", "1", "2", "3", "4", "5", "6", "7", "8"])
+    for day in week_days:
+      row = [day]
+      for i in range(1,9):
+        course = staff[day][i] if staff[day][i] != "0" else "FREE"
+        row.append(course)
+      schedule_table.append(row)
+    # print(f"\nSchedule for {staff['name']}: ")
+    #print(tabulate(schedule_table, headers="firstrow", tablefmt="grid", maxcolwidths=[8,15,15,15,15,15,15,15,15]))
+    # Write the schedule to a csv file
+    destination_folder = Path(f"{output_folder}/staff")
+    if not destination_folder.exists():
+      destination_folder.mkdir(parents=True)
+    staff_schedule_file = Path(f"{output_folder}/staff/{staff['name']}-{time.strftime('%Y%m%d%H%M%S')}.csv")
+    #staff_schedule_file.write_text(tabulate(schedule_table, headers="firstrow", tablefmt="tsv", maxcolwidths=[8,15,15,15,15,15,15,15,15]))
+    staff_schedule_file.write_text(tabulate(schedule_table, headers="firstrow", tablefmt="tsv"))
 
 
 def main():
@@ -463,7 +488,6 @@ def main():
     # for class_ in input_class_schedule:
     #   print(class_['name'], class_['schedule_bmap'], end=",")
     # print("\n")
-
     course_slot_mapping, have_unmapped_hours = get_class_schedule(sem, input_staff_availability, course_details_all, input_class_schedule)
     iteration += 1
 
@@ -472,8 +496,6 @@ def main():
     print(Fore.RED + Style.BRIGHT + f"{iteration-1} done. Still unable to find slots")
   else:
     print(Fore.GREEN + Style.BRIGHT + f"Found the slots in {iteration-1} iteration.")
-  #Create the updated staff availability csv file
-  #create_staff_availability_csv(staff_availability_curr)
 
   # Dump the data in json format for reference
   dump_list_to_file(input_class_schedule, class_schedule_json)
@@ -481,6 +503,10 @@ def main():
   dump_list_to_file(course_slot_mapping, course_schedule_json)
 
   pretty_print_class_schedule(input_class_schedule, [sem])
+  #Create the updated staff availability csv file
+  create_staff_availability_csv(input_staff_availability)
+  #Create staff schedule
+  pretty_print_staff_schedule(input_staff_availability)
 
 
   
