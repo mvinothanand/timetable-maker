@@ -5,6 +5,7 @@ import random
 import os
 import time
 import csv
+import copy
 
 # Third party packages
 from colorama import Fore, init, Back, Style
@@ -229,9 +230,9 @@ def find_slots(course, staff_class_merged_bmap, fn_first_hours, an_first_hours):
   input_bmap = staff_class_merged_bmap.copy()
   while(rem_hours > 0 and iteration_count <= int(course["weekly_hours"]) ):
     #print(f"Iteration {iteration_count}: Avilability Bitmap: {staff_class_merged_bmap}, num_of_first_hour_busy: {fn_first_hours}, num of busy after lunch: {an_first_hours}")
-    print(f"Iteraton {iteration_count}")      
+    #print(f"Iteraton {iteration_count}")      
     for day in week_days_shuffled:
-      print(day, rem_hours, end = " ")
+      #print(day, rem_hours, end = " ")
       if rem_hours <= 0:
         break
       i = get_week_day_index(day) - 1
@@ -249,7 +250,7 @@ def find_slots(course, staff_class_merged_bmap, fn_first_hours, an_first_hours):
         matched_slot = get_slot(rem_hours, min_block_size,curr_bmap, session_pref,skip_fn_first_hour, skip_an_first_hour)
 
       if matched_slot:
-        print(f"matched slot: {matched_slot}")
+        #print(f"matched slot: {matched_slot}")
         #matched_slots[day].append(matched_slot)
         matched_slots[day] = matched_slots[day] + matched_slot
         rem_hours = rem_hours - len(matched_slot)
@@ -268,15 +269,16 @@ def find_slots(course, staff_class_merged_bmap, fn_first_hours, an_first_hours):
         input_bmap[i] = updated_availability
     iteration_count += 1
   
+  print(course["name"], end=" ")
   if rem_hours == 0:
     print(f"{Style.BRIGHT}{Fore.GREEN}Successfully mapped.")
   else:
     print(f"{Fore.RED}{Style.BRIGHT}Unable to find slots for {rem_hours}")
 
-  print(f"Matched Slots: {matched_slots}")
-  print(f"Availability now: {input_bmap}")
+  # print(f"Matched Slots: {matched_slots}")
+  # print(f"Availability now: {input_bmap}")
   #print(f"{Fore.CYAN}Final Avilability Bitmap: {staff_class_merged_bmap}")
-  return matched_slots
+  return (matched_slots, rem_hours)
 
 
 def update_staff_availability(course_staff, staff_details_all, mapped_slots, course_name, class_name):
@@ -319,12 +321,13 @@ def get_class_schedule(class_name, staff_availability, course_details_all, class
     sys.exit(Fore.RED + "Class Schedule not found for {class_name}")
 
   course_slot_mapping = []
+  have_unmapped_hours = False
 
   for course in get_course_list_scheduling_pref(class_course_details):
     course_name = course["name"]
-    print(f"\n{Style.BRIGHT}{Fore.CYAN}{course['class']} {course_name} {Fore.WHITE}{course['staff']}", \
-      f"{Style.BRIGHT}{Fore.CYAN}week hours: {course['weekly_hours']} {Fore.WHITE}min/max: {course['min_block_size']}/{course['max_block_size']}", \
-      f"{Fore.CYAN}session pref: {course['session_pref']} {Fore.WHITE}max/day: {course['max_hrs_day']}")
+    # print(f"\n{Style.BRIGHT}{Fore.CYAN}{course['class']} {course_name} {Fore.WHITE}{course['staff']}", \
+    #   f"{Style.BRIGHT}{Fore.CYAN}week hours: {course['weekly_hours']} {Fore.WHITE}min/max: {course['min_block_size']}/{course['max_block_size']}", \
+    #   f"{Fore.CYAN}session pref: {course['session_pref']} {Fore.WHITE}max/day: {course['max_hrs_day']}")
     #print(print_string)
     #print(f"\n{Style.BRIGHT}{Fore.CYAN}{course['class']} {course_name} {course['staff']} \
     #week hours: {course['weekly_hours']} min/max: {course['min_block_size']}/{course['max_block_size']} session pref: {course['session_pref']} max/day: {course['max_hrs_day']}")
@@ -332,15 +335,17 @@ def get_class_schedule(class_name, staff_availability, course_details_all, class
     # For the staff mapped for the course, get a merged availability bitmap for the week
     staff_records = list(filter(lambda staff: staff['name'] in course['staff'].split("|"),staff_availability))
     staff_avail_merged_bmap = get_merged_bm_week(staff_records)
-    #print(f"{Fore.GREEN}Merged Staff Availability bmap for the week : {staff_avail_merged_bmap}")
+    # print(f"{Fore.GREEN}Merged Staff Availability bmap for the week : {staff_avail_merged_bmap}")
 
     # Get a merged bmap for the staff availability and class schedule
     staff_class_merged_bmap = get_staff_class_merged_bmap_week(staff_avail_merged_bmap, class_schedule[0]["schedule_bmap"])
     #print(f"Merged availability of staff and class: {staff_class_merged_bmap}")
 
     fn_first_hours, an_first_hours = get_num_of_busy_first_hours(staff_avail_merged_bmap)
-    mapped_slots = find_slots(course, staff_class_merged_bmap, fn_first_hours, an_first_hours)
+    mapped_slots, unmapped_hours = find_slots(course, staff_class_merged_bmap, fn_first_hours, an_first_hours)
     #print(mapped_slots)
+    if unmapped_hours > 0:
+      have_unmapped_hours = True
     
     # update staff availability
     update_staff_availability(staff_records, staff_availability, mapped_slots, course_name, class_name)
@@ -353,10 +358,11 @@ def get_class_schedule(class_name, staff_availability, course_details_all, class
     enriched_course_info.update({
       "allotted_slots": mapped_slots, 
       "faculty": [staff["name"] for staff in staff_records],
+      "unmapped_hours": unmapped_hours
     })
     course_slot_mapping.append(enriched_course_info)
   
-  return course_slot_mapping
+  return (course_slot_mapping,have_unmapped_hours)
 
 
 def create_staff_availability_csv(staff_details):
@@ -441,17 +447,40 @@ def main():
   enrich_class_schedule_info(class_schedule_curr)
 
   # Get schedule for a class
-  course_slot_mapping = get_class_schedule(sem, staff_availability_curr, course_details_all, class_schedule_curr)
-  
+  iteration = 1
+  input_staff_availability = []
+  input_class_schedule = []
+  have_unmapped_hours = True
+  while(have_unmapped_hours and iteration <= 20):
+    print(f"\nITERATION: {iteration}")
+    input_staff_availability.clear()
+    input_class_schedule.clear()
+    input_staff_availability = copy.deepcopy(staff_availability_curr)
+    input_class_schedule = copy.deepcopy(class_schedule_curr)
+    # for staff in input_staff_availability:
+    #   print(staff['name'], staff['availability_bitmap'], end=",")
+    # print("\n")
+    # for class_ in input_class_schedule:
+    #   print(class_['name'], class_['schedule_bmap'], end=",")
+    # print("\n")
+
+    course_slot_mapping, have_unmapped_hours = get_class_schedule(sem, input_staff_availability, course_details_all, input_class_schedule)
+    iteration += 1
+
+  print("\n")
+  if have_unmapped_hours:
+    print(Fore.RED + Style.BRIGHT + f"{iteration-1} done. Still unable to find slots")
+  else:
+    print(Fore.GREEN + Style.BRIGHT + f"Found the slots in {iteration-1} iteration.")
   #Create the updated staff availability csv file
   #create_staff_availability_csv(staff_availability_curr)
 
   # Dump the data in json format for reference
-  dump_list_to_file(class_schedule_curr, class_schedule_json)
-  dump_list_to_file(staff_availability_curr, staff_details_json)
+  dump_list_to_file(input_class_schedule, class_schedule_json)
+  dump_list_to_file(input_staff_availability, staff_details_json)
   dump_list_to_file(course_slot_mapping, course_schedule_json)
 
-  pretty_print_class_schedule(class_schedule_curr, [sem])
+  pretty_print_class_schedule(input_class_schedule, [sem])
 
 
   
