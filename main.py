@@ -217,7 +217,16 @@ def get_slot(rem_hours, block_size, day_avail_bmap, session_pref = "any", skip_f
   return list(range(matched_slot + 1, matched_slot + slot_size + 1)) if matched_slot >=0 else None
 
 
-def find_slots(course, staff_class_merged_bmap, fn_first_hours, an_first_hours):
+# check if the workload is within staff workload
+
+def is_within_allowed_workload(staff_init_workload, new_workload, day_index):
+  for staff in staff_init_workload:
+    if staff["workload"][day_index] + new_workload > scheduling_preferences["max_hours_per_staff_per_day"]:
+      return False
+  
+  return True
+
+def find_slots(course, staff_class_merged_bmap, fn_first_hours, an_first_hours, staff_init_daywise_workload):
   #initializing required variables
   rem_hours = int(course["weekly_hours"])
   max_block_size = int(course["max_block_size"])
@@ -238,6 +247,17 @@ def find_slots(course, staff_class_merged_bmap, fn_first_hours, an_first_hours):
       if rem_hours <= 0:
         break
       i = get_week_day_index(day) - 1
+      
+      # Skip the day if the number of already mapped slots greater than the configured max hrs / day for the course
+      if len(matched_slots[day]) >= max_hrs_day:
+        print(f"\nCourse max hrs per day exceeded for {day}. skipping.")
+        continue
+
+      # Skip the day if the number of already mapped slots greater than the configured max hrs / staff / day
+      if not is_within_allowed_workload(staff_init_daywise_workload, len(matched_slots[day]), i):
+        print(f"\nStaff workload limit reached for {day} for {course['name']}. Skipping.")
+        continue
+
       curr_bmap = apply_course_mask(input_bmap[i], matched_slots[day])
       #print(f"Course masked bmap: {curr_bmap}")
       
@@ -277,7 +297,7 @@ def find_slots(course, staff_class_merged_bmap, fn_first_hours, an_first_hours):
   else:
     print(f"{Fore.RED}{Style.BRIGHT}Unable to find slots for {rem_hours}")
 
-  # print(f"Matched Slots: {matched_slots}")
+  #print(f"Matched Slots: {matched_slots}")
   # print(f"Availability now: {input_bmap}")
   #print(f"{Fore.CYAN}Final Avilability Bitmap: {staff_class_merged_bmap}")
   return (matched_slots, rem_hours)
@@ -339,12 +359,21 @@ def get_class_schedule(class_name, staff_availability, course_details_all, class
     staff_avail_merged_bmap = get_merged_bm_week(staff_records)
     # print(f"{Fore.GREEN}Merged Staff Availability bmap for the week : {staff_avail_merged_bmap}")
 
+    # Get the daywise current workload of the staff
+    staff_init_daywise_workload = []
+    for staff in staff_records:
+      workload = []
+      for i in staff["availability_bitmap"]:
+        workload.append(len(i) - i.count("0"))  
+      staff_init_daywise_workload.append({ "name": staff["name"], "workload": workload})
+    #print(staff_init_daywise_workload) 
+
     # Get a merged bmap for the staff availability and class schedule
     staff_class_merged_bmap = get_staff_class_merged_bmap_week(staff_avail_merged_bmap, class_schedule[0]["schedule_bmap"])
     #print(f"Merged availability of staff and class: {staff_class_merged_bmap}")
 
     fn_first_hours, an_first_hours = get_num_of_busy_first_hours(staff_avail_merged_bmap)
-    mapped_slots, unmapped_hours = find_slots(course, staff_class_merged_bmap, fn_first_hours, an_first_hours)
+    mapped_slots, unmapped_hours = find_slots(course, staff_class_merged_bmap, fn_first_hours, an_first_hours, staff_init_daywise_workload)
     #print(mapped_slots)
     if unmapped_hours > 0:
       have_unmapped_hours = True
@@ -437,6 +466,9 @@ def pretty_print_staff_schedule(staff_availability):
 
 
 def main():
+  # clear screen
+  os.system("cls" if os.name == "nt" else "clear")
+
   # Validate input
   if len(sys.argv) < 2:
     sys.exit(Fore.RED + "Insufficient inputs")
