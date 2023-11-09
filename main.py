@@ -130,7 +130,7 @@ def should_skip_first_slot(no_of_first_hours):
 
 
 def should_skip_post_lunch_slot(no_of_post_lunch_hrs, course_type):
-  return no_of_post_lunch_hrs >= scheduling_preferences["max_first_after_after_lunch"] and course_type != "lab"
+  return no_of_post_lunch_hrs >= scheduling_preferences["max_first_after_lunch"] and course_type != "lab"
 
 
 def get_merged_bm_week(staff_records):
