@@ -351,13 +351,13 @@ def get_class_schedule(class_name, staff_availability, course_details_all, class
     #   f"{Style.BRIGHT}{Fore.CYAN}week hours: {course['weekly_hours']} {Fore.WHITE}min/max: {course['min_block_size']}/{course['max_block_size']}", \
     #   f"{Fore.CYAN}session pref: {course['session_pref']} {Fore.WHITE}max/day: {course['max_hrs_day']}")
     #print(print_string)
-    #print(f"\n{Style.BRIGHT}{Fore.CYAN}{course['class']} {course_name} {course['staff']} \
-    #week hours: {course['weekly_hours']} min/max: {course['min_block_size']}/{course['max_block_size']} session pref: {course['session_pref']} max/day: {course['max_hrs_day']}")
+    print(f"\n{Style.BRIGHT}{Fore.CYAN}{course['class']} {course_name} {course['staff']} \
+    week hours: {course['weekly_hours']} min/max: {course['min_block_size']}/{course['max_block_size']} session pref: {course['session_pref']} max/day: {course['max_hrs_day']}")
   
     # For the staff mapped for the course, get a merged availability bitmap for the week
     staff_records = list(filter(lambda staff: staff['name'] in course['staff'].split("|"),staff_availability))
     staff_avail_merged_bmap = get_merged_bm_week(staff_records)
-    # print(f"{Fore.GREEN}Merged Staff Availability bmap for the week : {staff_avail_merged_bmap}")
+    print(f"{Fore.GREEN}Merged Staff Availability bmap for the week : {staff_avail_merged_bmap}")
 
     # Get the daywise current workload of the staff
     staff_init_daywise_workload = []
@@ -370,11 +370,11 @@ def get_class_schedule(class_name, staff_availability, course_details_all, class
 
     # Get a merged bmap for the staff availability and class schedule
     staff_class_merged_bmap = get_staff_class_merged_bmap_week(staff_avail_merged_bmap, class_schedule[0]["schedule_bmap"])
-    #print(f"Merged availability of staff and class: {staff_class_merged_bmap}")
+    print(f"Merged availability of staff and class: {staff_class_merged_bmap}")
 
     fn_first_hours, an_first_hours = get_num_of_busy_first_hours(staff_avail_merged_bmap)
     mapped_slots, unmapped_hours = find_slots(course, staff_class_merged_bmap, fn_first_hours, an_first_hours, staff_init_daywise_workload)
-    #print(mapped_slots)
+    print(mapped_slots)
     if unmapped_hours > 0:
       have_unmapped_hours = True
     
@@ -398,7 +398,8 @@ def get_class_schedule(class_name, staff_availability, course_details_all, class
 
 def create_staff_availability_csv(staff_details):
   src_staff_filename = os.path.basename(staff_availability_file)
-  dest_staff_filename = os.path.splitext(src_staff_filename)[0] + "-" + time.strftime("%Y%m%d%H%M%S") + ".csv"
+  dest_staff_filename = os.path.splitext(src_staff_filename)[0] + "-" + time.strftime("%Y%m%d") + ".csv"
+  #dest_staff_filename = os.path.splitext(src_staff_filename)[0] + "-" + time.strftime("%Y%m%d%H%M%S") + ".csv"
   updated_staff_availability_file = f"{output_folder}staff/{dest_staff_filename}"
   # print(f"new file: {updated_staff_availability_file}")
 
@@ -434,7 +435,8 @@ def pretty_print_class_schedule(class_schedule, classes):
     destination_folder = Path(f"{output_folder}/class-schedule")
     if not destination_folder.exists():
       destination_folder.mkdir(parents=True)
-    class_schedule_file = Path(f"{output_folder}/class-schedule/{class_}-{time.strftime('%Y%m%d%H%M%S')}.csv")
+    #class_schedule_file = Path(f"{output_folder}/class-schedule/{class_}-{time.strftime('%Y%m%d%H%M%S')}.csv")
+    class_schedule_file = Path(f"{output_folder}/class-schedule/{class_}-{time.strftime('%Y%m%d')}.csv")
     class_schedule_file.write_text(tabulate(schedule_table, headers="firstrow", tablefmt="tsv", maxcolwidths=[8,15,15,15,15,15,15,15,15]))
     # create_dir(f"{output_folder}/class-schedule/")
     # with open(f"{output_folder}/class-schedule/{class_}-{time.strftime('%Y%m%d%H%M%S')}.csv", "w") as fp:
@@ -460,7 +462,8 @@ def pretty_print_staff_schedule(staff_availability):
     destination_folder = Path(f"{output_folder}/staff")
     if not destination_folder.exists():
       destination_folder.mkdir(parents=True)
-    staff_schedule_file = Path(f"{output_folder}/staff/{staff['name']}-{time.strftime('%Y%m%d%H%M%S')}.csv")
+    # staff_schedule_file = Path(f"{output_folder}/staff/{staff['name']}-{time.strftime('%Y%m%d%H%M%S')}.csv")
+    staff_schedule_file = Path(f"{output_folder}/staff/{staff['name']}-{time.strftime('%Y%m%d')}.csv")
     #staff_schedule_file.write_text(tabulate(schedule_table, headers="firstrow", tablefmt="tsv", maxcolwidths=[8,15,15,15,15,15,15,15,15]))
     staff_schedule_file.write_text(tabulate(schedule_table, headers="firstrow", tablefmt="tsv"))
 

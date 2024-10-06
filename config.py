@@ -11,8 +11,8 @@ an_hrs=[5,6,7,8]
 scheduling_preferences = {
   "randomize_course_list": False,
   "bigger_blocks_first": True,
-  "max_first_hour_alloc": 2,
-  "max_first_after_lunch": 2,
+  "max_first_hour_alloc": 1,
+  "max_first_after_lunch": 1,
   "max_hours_per_staff_per_day": 6
 }
 # Result files
